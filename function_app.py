@@ -118,6 +118,7 @@ def ado_task_automation(req: func.HttpRequest) -> func.HttpResponse:
 
         if create_resp.status_code in (200, 201):
             created_count += 1
+            existing_titles.add(title)
             logging.info("Task created: %s", title)
         else:
             logging.error("Failed to create task: %s, status_code=%s, response=%s",
