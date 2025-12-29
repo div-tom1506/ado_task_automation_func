@@ -8,7 +8,7 @@ import azure.functions as func
 app = func.FunctionApp(http_auth_level=func.AuthLevel.FUNCTION)
 
 TASK_TITLES = [
-    "Requirements",
+    "Requirements and Grooming",
     "Design & Approach",
     "Implementation",
     "Test & Validation",
@@ -18,7 +18,7 @@ TASK_TITLES = [
 ORG = os.getenv("ADO_ORG")
 PROJECT = os.getenv("ADO_PROJECT")
 PAT = os.getenv("ADO_PAT")
-API_VERSION = "7.0"
+API_VERSION = os.getenv("API_VERSION")
 
 def _auth_headers(content_type=None):
     token = base64.b64encode(f":{PAT}".encode()).decode()
@@ -38,7 +38,7 @@ def ado_task_automation(req: func.HttpRequest) -> func.HttpResponse:
         logging.error("Invalid JSON payload")
         return func.HttpResponse("Invalid payload", status_code=400)
 
-    # Log full payload for debugging
+    # Logging full payload for debugging
     logging.info("Full payload: %s", json.dumps(payload))
 
     resource = payload.get("resource", {})
@@ -54,8 +54,8 @@ def ado_task_automation(req: func.HttpRequest) -> func.HttpResponse:
         return func.HttpResponse(status_code=200)
 
     # Set defaults if missing
-    area_path = fields.get("System.AreaPath") or "DefaultArea"  # replace with your default project area
-    iteration_path = fields.get("System.IterationPath") or "DefaultIteration"  # replace with your default iteration/sprint
+    area_path = fields.get("System.AreaPath")
+    iteration_path = fields.get("System.IterationPath")
 
     if not all([ORG, PROJECT, PAT, story_id]):
         logging.error("Missing required configuration or payload fields")
