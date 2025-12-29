@@ -125,4 +125,4 @@ def ado_task_automation(req: func.HttpRequest) -> func.HttpResponse:
                           title, create_resp.status_code, create_resp.text)
 
     logging.info("Task automation completed. Created %s tasks", created_count)
-    return func.HttpResponse("Task automation completed", status_code=200)
+    return func.HttpResponse("Task completed", status_code=200)
