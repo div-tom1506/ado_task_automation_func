@@ -8,7 +8,7 @@ import azure.functions as func
 app = func.FunctionApp(http_auth_level=func.AuthLevel.FUNCTION)
 
 TASK_TITLES = [
-    "Requirements & Grooming",
+    "Requirements",
     "Design & Approach",
     "Implementation",
     "Test & Validation",
@@ -16,6 +16,7 @@ TASK_TITLES = [
 ]
 
 ORG = os.getenv("ADO_ORG")
+PROJECT = os.getenv("ADO_PROJECT")
 PAT = os.getenv("ADO_PAT")
 API_VERSION = "7.0"
 
@@ -37,12 +38,14 @@ def ado_task_automation(req: func.HttpRequest) -> func.HttpResponse:
         logging.error("Invalid JSON payload")
         return func.HttpResponse("Invalid payload", status_code=400)
 
+    # Log full payload for debugging
+    logging.info("Full payload: %s", json.dumps(payload))
+
     resource = payload.get("resource", {})
     story_id = resource.get("id")
     fields = resource.get("fields", {})
 
     work_item_type = fields.get("System.WorkItemType")
-
     if isinstance(work_item_type, dict):
         work_item_type = work_item_type.get("newValue")
 
@@ -50,10 +53,11 @@ def ado_task_automation(req: func.HttpRequest) -> func.HttpResponse:
         logging.info("Ignoring non User Story work item")
         return func.HttpResponse(status_code=200)
 
-    area_path = fields.get("System.AreaPath")
-    iteration_path = fields.get("System.IterationPath")
+    # Set defaults if missing
+    area_path = fields.get("System.AreaPath") or "DefaultArea"  # replace with your default project area
+    iteration_path = fields.get("System.IterationPath") or "DefaultIteration"  # replace with your default iteration/sprint
 
-    if not all([ORG, PROJECT, PAT, story_id, area_path, iteration_path]):
+    if not all([ORG, PROJECT, PAT, story_id]):
         logging.error("Missing required configuration or payload fields")
         return func.HttpResponse("Missing required data", status_code=400)
 
@@ -64,7 +68,6 @@ def ado_task_automation(req: func.HttpRequest) -> func.HttpResponse:
     )
 
     parent_resp = requests.get(parent_url, headers=_auth_headers(), timeout=15)
-
     if parent_resp.status_code != 200:
         logging.error("Failed to fetch parent work item")
         return func.HttpResponse("Failed to fetch work item", status_code=500)
@@ -107,7 +110,7 @@ def ado_task_automation(req: func.HttpRequest) -> func.HttpResponse:
         ]
 
         create_resp = requests.post(
-            f"https://dev.azure.com/{ORG}/_apis/wit/workitems/$Task?api-version={API_VERSION}",
+            f"https://dev.azure.com/{ORG}/{PROJECT}/_apis/wit/workitems/$Task?api-version={API_VERSION}",
             headers=_auth_headers("application/json-patch+json"),
             data=json.dumps(payload),
             timeout=15
@@ -117,7 +120,8 @@ def ado_task_automation(req: func.HttpRequest) -> func.HttpResponse:
             created_count += 1
             logging.info("Task created: %s", title)
         else:
-            logging.error("Failed to create task: %s", title)
+            logging.error("Failed to create task: %s, status_code=%s, response=%s",
+                          title, create_resp.status_code, create_resp.text)
 
     logging.info("Task automation completed. Created %s tasks", created_count)
     return func.HttpResponse("Task automation completed", status_code=200)
